@@ -1,4 +1,5 @@
 exclude *.*
+include changelog.txt
 include docs/Features.html
 include docs/UnicodeProperties.rst
 include LICENSE.txt
