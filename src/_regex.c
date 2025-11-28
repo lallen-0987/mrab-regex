@@ -55,6 +55,31 @@
 #include "pyport.h"
 #include "pythread.h"
 
+/* Thread-safe atomic operations for storage caching.
+ * Uses C11 atomics when available, otherwise falls back to simple operations
+ * (which are safe when protected by the GIL).
+ */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
+#include <stdatomic.h>
+#define RE_ATOMIC_EXCHANGE_PTR(ptr, val) \
+    atomic_exchange_explicit((_Atomic(void*)*)&(ptr), (val), memory_order_acq_rel)
+#define RE_ATOMIC_CAS_PTR(ptr, expected, desired) \
+    atomic_compare_exchange_strong_explicit( \
+        (_Atomic(void*)*)&(ptr), (expected), (desired), \
+        memory_order_acq_rel, memory_order_acquire)
+#define RE_ATOMIC_LOAD_SIZE(var) \
+    atomic_load_explicit((_Atomic(size_t)*)&(var), memory_order_acquire)
+#define RE_ATOMIC_STORE_SIZE(var, val) \
+    atomic_store_explicit((_Atomic(size_t)*)&(var), (val), memory_order_release)
+#else
+#define RE_ATOMIC_EXCHANGE_PTR(ptr, val) \
+    ({ void* _old = (ptr); (ptr) = (val); _old; })
+#define RE_ATOMIC_CAS_PTR(ptr, expected, desired) \
+    ((ptr) == *(expected) ? ((ptr) = (desired), 1) : (*(expected) = (ptr), 0))
+#define RE_ATOMIC_LOAD_SIZE(var) (var)
+#define RE_ATOMIC_STORE_SIZE(var, val) ((var) = (val))
+#endif
+
 typedef RE_UINT32 RE_CODE;
 typedef unsigned char BYTE;
 
@@ -18218,12 +18243,11 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
     ByteStack_init(state, &state->bstack);
     ByteStack_init(state, &state->pstack);
 
-    /* We might already have some cached storage we can use for bstack. */
-    if (pattern->stack_storage) {
-        state->bstack.storage = pattern->stack_storage;
-        state->bstack.capacity = pattern->stack_capacity;
-        pattern->stack_storage = NULL;
-        pattern->stack_capacity = 0;
+    /* Atomically claim any cached storage for bstack. */
+    state->bstack.storage = RE_ATOMIC_EXCHANGE_PTR(pattern->stack_storage, NULL);
+    if (state->bstack.storage) {
+        state->bstack.capacity = RE_ATOMIC_LOAD_SIZE(pattern->stack_capacity);
+        RE_ATOMIC_STORE_SIZE(pattern->stack_capacity, 0);
     }
 
     state->groups = NULL;
@@ -18248,14 +18272,12 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
           sizeof(RE_GuardList));
     }
 
-    /* The capture groups. */
+    /* The capture groups. Atomically claim any cached storage. */
     if (pattern->true_group_count) {
         size_t g;
 
-        if (pattern->groups_storage) {
-            state->groups = pattern->groups_storage;
-            pattern->groups_storage = NULL;
-        } else {
+        state->groups = RE_ATOMIC_EXCHANGE_PTR(pattern->groups_storage, NULL);
+        if (!state->groups) {
             state->groups = (RE_GroupData*)re_alloc(pattern->true_group_count *
               sizeof(RE_GroupData));
             if (!state->groups)
@@ -18395,11 +18417,10 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
     state->pattern = pattern;
     state->string = string;
 
+    /* Atomically claim any cached repeats storage. */
     if (pattern->repeat_count) {
-        if (pattern->repeats_storage) {
-            state->repeats = pattern->repeats_storage;
-            pattern->repeats_storage = NULL;
-        } else {
+        state->repeats = RE_ATOMIC_EXCHANGE_PTR(pattern->repeats_storage, NULL);
+        if (!state->repeats) {
             state->repeats = (RE_RepeatData*)re_alloc(pattern->repeat_count *
               sizeof(RE_RepeatData));
             if (!state->repeats)
@@ -18567,24 +18588,28 @@ Py_LOCAL_INLINE(void) state_fini(RE_State* state) {
 
     pattern = state->pattern;
 
-    /* If possible cache the storage of bstack. */
-    if (!pattern->stack_storage) {
-        pattern->stack_storage = state->bstack.storage;
-        pattern->stack_capacity = state->bstack.capacity;
-        state->bstack.storage = NULL;
-        state->bstack.capacity = 0;
-        state->bstack.count = 0;
+    /* Try to cache bstack storage atomically; if slot is occupied, we'll free it. */
+    if (state->bstack.storage) {
+        void* expected = NULL;
+        if (RE_ATOMIC_CAS_PTR(pattern->stack_storage, &expected,
+          state->bstack.storage)) {
+            RE_ATOMIC_STORE_SIZE(pattern->stack_capacity, state->bstack.capacity);
+            state->bstack.storage = NULL;
+            state->bstack.capacity = 0;
+            state->bstack.count = 0;
 
-        /* Limit the size of the cached storage to <= 64KB. */
-        if (pattern->stack_capacity > 0x10000) {
-            BYTE* new_storage;
+            /* Limit the size of the cached storage to <= 64KB. */
+            if (RE_ATOMIC_LOAD_SIZE(pattern->stack_capacity) > 0x10000) {
+                BYTE* new_storage;
 
-            new_storage = re_realloc(pattern->stack_storage, 0x10000);
-            if (new_storage) {
-                pattern->stack_storage = new_storage;
-                pattern->stack_capacity = 0x10000;
+                new_storage = re_realloc(pattern->stack_storage, 0x10000);
+                if (new_storage) {
+                    pattern->stack_storage = new_storage;
+                    RE_ATOMIC_STORE_SIZE(pattern->stack_capacity, 0x10000);
+                }
             }
         }
+        /* If CAS failed, bstack.storage will be freed by ByteStack_fini below */
     }
 
     /* Clear the stacks. */
@@ -18595,15 +18620,19 @@ Py_LOCAL_INLINE(void) state_fini(RE_State* state) {
     if (state->best_match_groups)
         dealloc_groups(state->best_match_groups, pattern->true_group_count);
 
-    if (pattern->groups_storage)
-        dealloc_groups(state->groups, pattern->true_group_count);
-    else
-        pattern->groups_storage = state->groups;
+    /* Try to cache groups storage atomically. */
+    if (state->groups) {
+        void* expected = NULL;
+        if (!RE_ATOMIC_CAS_PTR(pattern->groups_storage, &expected, state->groups))
+            dealloc_groups(state->groups, pattern->true_group_count);
+    }
 
-    if (pattern->repeats_storage)
-        dealloc_repeats(state->repeats, pattern->repeat_count);
-    else
-        pattern->repeats_storage = state->repeats;
+    /* Try to cache repeats storage atomically. */
+    if (state->repeats) {
+        void* expected = NULL;
+        if (!RE_ATOMIC_CAS_PTR(pattern->repeats_storage, &expected, state->repeats))
+            dealloc_repeats(state->repeats, pattern->repeat_count);
+    }
 
     for (i = 0; i < pattern->call_ref_info_count; i++)
         re_dealloc(state->group_call_guard_list[i].spans);
