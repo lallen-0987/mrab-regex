@@ -1,6 +1,12 @@
+Version: 2026.1.14
+
+    Git issue 596: Specifying {e<=0} causes ca 210× slow-down.
+
+    Added RISC-V wheels.
+
 Version: 2025.11.3
 
-    Git issue 594: Support relative PARNO in recursive subpatterns
+    Git issue 594: Support relative PARNO in recursive subpatterns.
 
 Version: 2025.10.23
 
