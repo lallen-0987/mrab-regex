@@ -1,3 +1,9 @@
+Version: 2026.2.19
+
+    Added \z as alias of \Z, like in re module.
+
+    Added prefixmatch as alias of match, like in re module.
+
 Version: 2026.1.15
 
     Re-uploaded.
