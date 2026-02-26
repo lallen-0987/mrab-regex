@@ -18186,7 +18186,7 @@ Py_LOCAL_INLINE(BOOL) get_string(PyObject* string, RE_StringInfo* str_info) {
             return FALSE;
 
         str_info->characters = (void*)PyUnicode_DATA(string);
-        str_info->length = PyUnicode_GET_LENGTH(string);
+        str_info->length = PyUnicode_GetLength(string);
         str_info->charsize = PyUnicode_KIND(string);
         str_info->is_unicode = TRUE;
         str_info->should_release = FALSE;
@@ -18726,7 +18726,7 @@ Py_LOCAL_INLINE(PyObject*) unicode_slice(PyObject* string, Py_ssize_t start,
   Py_ssize_t end) {
     Py_ssize_t length;
 
-    length = PyUnicode_GET_LENGTH(string);
+    length = PyUnicode_GetLength(string);
     start = limited_range(start, 0, length);
     end = limited_range(end, 0, length);
 

@@ -1,3 +1,9 @@
+Version: 2026.2.26
+
+    PR #598: Fix race condition in storage caching with atomic operations.
+
+    Replaced use of PyUnicode_GET_LENGTH with PyUnicode_GetLength.
+
 Version: 2026.2.19
 
     Added \z as alias of \Z, like in re module.
