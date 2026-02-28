@@ -55,31 +55,6 @@
 #include "pyport.h"
 #include "pythread.h"
 
-/* Thread-safe atomic operations for storage caching.
- * Uses C11 atomics when available, otherwise falls back to simple operations
- * (which are safe when protected by the GIL).
- */
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
-#include <stdatomic.h>
-#define RE_ATOMIC_EXCHANGE_PTR(ptr, val) \
-    atomic_exchange_explicit((_Atomic(void*)*)&(ptr), (val), memory_order_acq_rel)
-#define RE_ATOMIC_CAS_PTR(ptr, expected, desired) \
-    atomic_compare_exchange_strong_explicit( \
-        (_Atomic(void*)*)&(ptr), (expected), (desired), \
-        memory_order_acq_rel, memory_order_acquire)
-#define RE_ATOMIC_LOAD_SIZE(var) \
-    atomic_load_explicit((_Atomic(size_t)*)&(var), memory_order_acquire)
-#define RE_ATOMIC_STORE_SIZE(var, val) \
-    atomic_store_explicit((_Atomic(size_t)*)&(var), (val), memory_order_release)
-#else
-#define RE_ATOMIC_EXCHANGE_PTR(ptr, val) \
-    ({ void* _old = (ptr); (ptr) = (val); _old; })
-#define RE_ATOMIC_CAS_PTR(ptr, expected, desired) \
-    ((ptr) == *(expected) ? ((ptr) = (desired), 1) : (*(expected) = (ptr), 0))
-#define RE_ATOMIC_LOAD_SIZE(var) (var)
-#define RE_ATOMIC_STORE_SIZE(var, val) ((var) = (val))
-#endif
-
 typedef RE_UINT32 RE_CODE;
 typedef unsigned char BYTE;
 
@@ -610,6 +585,9 @@ typedef struct PatternObject {
     RE_Node* req_string; /* The required string. */
     BOOL is_fuzzy; /* Whether it's a fuzzy pattern. */
     BOOL do_search_start; /* Whether to do an initial search. */
+    #if defined(Py_GIL_DISABLED)
+    PyMutex mutex;
+    #endif
 } PatternObject;
 
 /* The MatchObject created when a match is found. */
@@ -18243,12 +18221,21 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
     ByteStack_init(state, &state->bstack);
     ByteStack_init(state, &state->pstack);
 
-    /* Atomically claim any cached storage for bstack. */
-    state->bstack.storage = RE_ATOMIC_EXCHANGE_PTR(pattern->stack_storage, NULL);
-    if (state->bstack.storage) {
-        state->bstack.capacity = RE_ATOMIC_LOAD_SIZE(pattern->stack_capacity);
-        RE_ATOMIC_STORE_SIZE(pattern->stack_capacity, 0);
+    /* We might already have some cached storage we can use for bstack. */
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Lock(&pattern->mutex);
+    #endif
+
+    if (pattern->stack_storage) {
+        state->bstack.storage = pattern->stack_storage;
+        state->bstack.capacity = pattern->stack_capacity;
+        pattern->stack_storage = NULL;
+        pattern->stack_capacity = 0;
     }
+
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Unlock(&pattern->mutex);
+    #endif
 
     state->groups = NULL;
     state->best_match_groups = NULL;
@@ -18272,12 +18259,26 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
           sizeof(RE_GuardList));
     }
 
-    /* The capture groups. Atomically claim any cached storage. */
+    /* The capture groups. */
     if (pattern->true_group_count) {
         size_t g;
 
-        state->groups = RE_ATOMIC_EXCHANGE_PTR(pattern->groups_storage, NULL);
-        if (!state->groups) {
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Lock(&pattern->mutex);
+        #endif
+
+        if (pattern->groups_storage) {
+            state->groups = pattern->groups_storage;
+            pattern->groups_storage = NULL;
+
+            #if defined(Py_GIL_DISABLED)
+            PyMutex_Unlock(&pattern->mutex);
+            #endif
+        } else {
+            #if defined(Py_GIL_DISABLED)
+            PyMutex_Unlock(&pattern->mutex);
+            #endif
+
             state->groups = (RE_GroupData*)re_alloc(pattern->true_group_count *
               sizeof(RE_GroupData));
             if (!state->groups)
@@ -18420,10 +18421,23 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
     state->pattern = pattern;
     state->string = string;
 
-    /* Atomically claim any cached repeats storage. */
     if (pattern->repeat_count) {
-        state->repeats = RE_ATOMIC_EXCHANGE_PTR(pattern->repeats_storage, NULL);
-        if (!state->repeats) {
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Lock(&pattern->mutex);
+        #endif
+
+        if (pattern->repeats_storage) {
+            state->repeats = pattern->repeats_storage;
+            pattern->repeats_storage = NULL;
+
+            #if defined(Py_GIL_DISABLED)
+            PyMutex_Unlock(&pattern->mutex);
+            #endif
+        } else {
+            #if defined(Py_GIL_DISABLED)
+            PyMutex_Unlock(&pattern->mutex);
+            #endif
+
             state->repeats = (RE_RepeatData*)re_alloc(pattern->repeat_count *
               sizeof(RE_RepeatData));
             if (!state->repeats)
@@ -18591,51 +18605,51 @@ Py_LOCAL_INLINE(void) state_fini(RE_State* state) {
 
     pattern = state->pattern;
 
-    /* Try to cache bstack storage atomically; if slot is occupied, we'll free it. */
-    if (state->bstack.storage) {
-        void* expected = NULL;
-        if (RE_ATOMIC_CAS_PTR(pattern->stack_storage, &expected,
-          state->bstack.storage)) {
-            RE_ATOMIC_STORE_SIZE(pattern->stack_capacity, state->bstack.capacity);
-            state->bstack.storage = NULL;
-            state->bstack.capacity = 0;
-            state->bstack.count = 0;
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Lock(&pattern->mutex);
+    #endif
 
-            /* Limit the size of the cached storage to <= 64KB. */
-            if (RE_ATOMIC_LOAD_SIZE(pattern->stack_capacity) > 0x10000) {
-                BYTE* new_storage;
+    /* If possible cache the storage of bstack. */
+    if (!pattern->stack_storage) {
+        pattern->stack_storage = state->bstack.storage;
+        pattern->stack_capacity = state->bstack.capacity;
+        state->bstack.storage = NULL;
+        state->bstack.capacity = 0;
+        state->bstack.count = 0;
 
-                new_storage = re_realloc(pattern->stack_storage, 0x10000);
-                if (new_storage) {
-                    pattern->stack_storage = new_storage;
-                    RE_ATOMIC_STORE_SIZE(pattern->stack_capacity, 0x10000);
-                }
+        /* Limit the size of the cached storage to <= 64KB. */
+        if (pattern->stack_capacity > 0x10000) {
+            BYTE* new_storage;
+
+            new_storage = re_realloc(pattern->stack_storage, 0x10000);
+            if (new_storage) {
+                pattern->stack_storage = new_storage;
+                pattern->stack_capacity = 0x10000;
             }
         }
-        /* If CAS failed, bstack.storage will be freed by ByteStack_fini below */
     }
+
+    if (pattern->groups_storage)
+        dealloc_groups(state->groups, pattern->true_group_count);
+    else
+        pattern->groups_storage = state->groups;
+
+    if (pattern->repeats_storage)
+        dealloc_repeats(state->repeats, pattern->repeat_count);
+    else
+        pattern->repeats_storage = state->repeats;
+
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Unlock(&pattern->mutex);
+    #endif
+
+    if (state->best_match_groups)
+        dealloc_groups(state->best_match_groups, pattern->true_group_count);
 
     /* Clear the stacks. */
     ByteStack_fini(state, &state->sstack);
     ByteStack_fini(state, &state->bstack);
     ByteStack_fini(state, &state->pstack);
-
-    if (state->best_match_groups)
-        dealloc_groups(state->best_match_groups, pattern->true_group_count);
-
-    /* Try to cache groups storage atomically. */
-    if (state->groups) {
-        void* expected = NULL;
-        if (!RE_ATOMIC_CAS_PTR(pattern->groups_storage, &expected, state->groups))
-            dealloc_groups(state->groups, pattern->true_group_count);
-    }
-
-    /* Try to cache repeats storage atomically. */
-    if (state->repeats) {
-        void* expected = NULL;
-        if (!RE_ATOMIC_CAS_PTR(pattern->repeats_storage, &expected, state->repeats))
-            dealloc_repeats(state->repeats, pattern->repeat_count);
-    }
 
     for (i = 0; i < pattern->call_ref_info_count; i++)
         re_dealloc(state->group_call_guard_list[i].spans);
@@ -25831,6 +25845,9 @@ static PyObject* re_compile(PyObject* self_, PyObject* args) {
     self->req_flags = req_flags;
     self->req_string = NULL;
     self->locale_info = NULL;
+    #if defined(Py_GIL_DISABLED)
+    memset(&self->mutex, 0, sizeof(self->mutex));
+    #endif
     Py_INCREF(self->pattern);
     if (unpacked) {
         Py_INCREF(self->packed_code_list);
@@ -26439,9 +26456,9 @@ PyMODINIT_FUNC PyInit__regex(void) {
     if (!m)
         return NULL;
 
-#if defined(Py_GIL_DISABLED)
+    #if defined(Py_GIL_DISABLED)
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
-#endif
+    #endif
 
     d = PyModule_GetDict(m);
 

@@ -1,3 +1,7 @@
+Version: 2026.2.28
+
+    Replaced atomic operations with mutex on pattern object for free-threaded Python.
+
 Version: 2026.2.26
 
     PR #598: Fix race condition in storage caching with atomic operations.
