@@ -1,3 +1,7 @@
+Version: 2026.3.27
+
+    Various fixes, including ones to improve free-threading support.
+
 Version: 2026.2.28
 
     Replaced atomic operations with mutex on pattern object for free-threaded Python.
