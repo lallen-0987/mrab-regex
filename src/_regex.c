@@ -19244,7 +19244,7 @@ static PyObject* match_group(MatchObject* self, PyObject* args) {
     PyObject* result;
     Py_ssize_t i;
 
-    size = PyTuple_GetSize(args);
+    size = PyTuple_Size(args);
 
     switch (size) {
     case 0:
@@ -19301,7 +19301,7 @@ Py_LOCAL_INLINE(PyObject*) get_from_match(MatchObject* self, PyObject* args,
     PyObject* result;
     Py_ssize_t i;
 
-    size = PyTuple_GetSize(args);
+    size = PyTuple_Size(args);
 
     switch (size) {
     case 0:
@@ -21514,7 +21514,7 @@ Py_LOCAL_INLINE(PyObject*) pattern_search_or_match(PatternObject* self,
      */
     Py_ssize_t arg_count;
     if (args && !kwargs && PyTuple_CheckExact(args))
-        arg_count = PyTuple_GetSize(args);
+        arg_count = PyTuple_Size(args);
     else
         arg_count = -1;
 
@@ -25731,7 +25731,7 @@ Py_LOCAL_INLINE(void) get_required_chars(PyObject* required_chars, RE_CODE**
     *req_chars = NULL;
     *req_length = 0;
 
-    len = PyTuple_GetSize(required_chars);
+    len = PyTuple_Size(required_chars);
     if (len < 1 || PyErr_Occurred()) {
         PyErr_Clear();
         return;

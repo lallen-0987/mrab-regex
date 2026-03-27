@@ -1,3 +1,7 @@
+Version: 2026.3.29
+
+    Fixed bug.
+
 Version: 2026.3.28
 
     Fixed version.
