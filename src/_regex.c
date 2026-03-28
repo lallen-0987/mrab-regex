@@ -6559,10 +6559,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
+        acquire_GIL(state);
         #if defined(Py_GIL_DISABLED)
         PyMutex_Lock(&state->pattern->mutex);
-        #else
-        acquire_GIL(state);
         #endif
 
         /* Double-check because of multithreading. */
@@ -6573,9 +6572,8 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
 
         #if defined(Py_GIL_DISABLED)
         PyMutex_Unlock(&state->pattern->mutex);
-        #else
-        release_GIL(state);
         #endif
+        release_GIL(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -6755,10 +6753,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
+        acquire_GIL(state);
         #if defined(Py_GIL_DISABLED)
         PyMutex_Lock(&state->pattern->mutex);
-        #else
-        acquire_GIL(state);
         #endif
 
         /* Double-check because of multithreading. */
@@ -6769,9 +6766,8 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
 
         #if defined(Py_GIL_DISABLED)
         PyMutex_Unlock(&state->pattern->mutex);
-        #else
-        release_GIL(state);
         #endif
+        release_GIL(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -6805,10 +6801,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
+        acquire_GIL(state);
         #if defined(Py_GIL_DISABLED)
         PyMutex_Lock(&state->pattern->mutex);
-        #else
-        acquire_GIL(state);
         #endif
 
         /* Double-check because of multithreading. */
@@ -6819,9 +6814,8 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
 
         #if defined(Py_GIL_DISABLED)
         PyMutex_Unlock(&state->pattern->mutex);
-        #else
-        release_GIL(state);
         #endif
+        release_GIL(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -6854,10 +6848,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
+        acquire_GIL(state);
         #if defined(Py_GIL_DISABLED)
         PyMutex_Lock(&state->pattern->mutex);
-        #else
-        acquire_GIL(state);
         #endif
 
         /* Double-check because of multithreading. */
@@ -6866,10 +6859,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
             node->status |= RE_STATUS_FAST_INIT;
         }
 
+        release_GIL(state);
         #if defined(Py_GIL_DISABLED)
         PyMutex_Unlock(&state->pattern->mutex);
-        #else
-        release_GIL(state);
         #endif
     }
 
