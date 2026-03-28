@@ -6560,7 +6560,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&pattern->mutex);
+        PyMutex_Lock(&state->pattern->mutex);
         #else
         acquire_GIL(state);
         #endif
@@ -6572,7 +6572,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
         }
 
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&pattern->mutex);
+        PyMutex_Unlock(&state->pattern->mutex);
         #else
         release_GIL(state);
         #endif
@@ -6756,7 +6756,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&pattern->mutex);
+        PyMutex_Lock(&state->pattern->mutex);
         #else
         acquire_GIL(state);
         #endif
@@ -6768,7 +6768,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
         }
 
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&pattern->mutex);
+        PyMutex_Unlock(&state->pattern->mutex);
         #else
         release_GIL(state);
         #endif
@@ -6806,7 +6806,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&pattern->mutex);
+        PyMutex_Lock(&state->pattern->mutex);
         #else
         acquire_GIL(state);
         #endif
@@ -6818,7 +6818,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
         }
 
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&pattern->mutex);
+        PyMutex_Unlock(&state->pattern->mutex);
         #else
         release_GIL(state);
         #endif
@@ -6855,7 +6855,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&pattern->mutex);
+        PyMutex_Lock(&state->pattern->mutex);
         #else
         acquire_GIL(state);
         #endif
@@ -6867,7 +6867,7 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
         }
 
         #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&pattern->mutex);
+        PyMutex_Unlock(&state->pattern->mutex);
         #else
         release_GIL(state);
         #endif
