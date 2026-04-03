@@ -2073,15 +2073,18 @@ Py_LOCAL_INLINE(BOOL) ensure_error_exception(void) {
     if (error_exception)
         return TRUE;
 
+    #if defined(Py_GIL_DISABLED)
     static PyMutex init_mutex = {0};
-
     PyMutex_Lock(&init_mutex);
+    #endif
 
     if (!error_exception) {
         error_exception = get_object("regex._regex_core", "error");
     }
 
+    #if defined(Py_GIL_DISABLED)
     PyMutex_Unlock(&init_mutex);
+    #endif
 
     return error_exception != NULL;
 }
