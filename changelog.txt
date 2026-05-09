@@ -1,3 +1,15 @@
+Version: 2026.5.9
+
+    Reverse matching with full unicode casefolding could lead to out-of-range string indexes.
+
+Version: 2026.4.4
+
+    A fix for older Python versions before free-threading was  supported.
+
+Version: 2026.4.3
+
+    More fixes for free-threading.
+
 Version: 2026.3.32
 
     Fixed segfault.
