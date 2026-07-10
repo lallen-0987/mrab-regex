@@ -174,6 +174,8 @@ Added POSIX matching (leftmost longest) (`Hg issue 150 <https://github.com/mraba
 
 The POSIX standard for regex is to return the leftmost longest match. This can be turned on using the ``POSIX`` flag.
 
+It looks for the longest overall match. It doesn't look for the longest match for each group.
+
 .. sourcecode:: python
 
   >>> # Normal matching.

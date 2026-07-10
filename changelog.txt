@@ -1,3 +1,9 @@
+Version: 2026.7.10
+
+    Clarified that the POSIX flag makes it look for only the longest overall match.
+
+    Git issue 606: `regex`'s compiled-pattern cache eviction is not free-threading-safe
+
 Version: 2026.6.28
 
 	Git issue 604: regex fails on free-threading python because setlocale is not thread-safe
