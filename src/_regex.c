@@ -13430,8 +13430,12 @@ advance:
                 repeat->tail_guard_list.last_text_pos = -1;
             }
 
-            /* Call a group, skipping its CALL_REF node. */
-            node = pattern->call_ref_info[index].node->next_1.node;
+            /* Call a group, skipping its CALL_REF node. Be aware that we might be calling the entire pattern. */
+            if (pattern->call_ref_info[index].node) {
+                node = pattern->call_ref_info[index].node->next_1.node;
+            } else {
+                node = pattern->start_node;
+            }
             break;
         }
         case RE_OP_GROUP_EXISTS: /* Capture group exists. */

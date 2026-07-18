@@ -1,3 +1,7 @@
+Version: 2026.7.18
+
+    Git issue 607: SIGSEGV: NULL pointer dereference in `basic_match()` when `(?R)`/`(?0)` recursion is used inside a fuzzy-matching quantifier
+
 Version: 2026.7.10
 
     Clarified that the POSIX flag makes it look for only the longest overall match.
