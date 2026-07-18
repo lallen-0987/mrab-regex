@@ -8395,6 +8395,7 @@ Py_LOCAL_INLINE(int) search_start(RE_State* state, RE_NextNode* next,
 
     test = next->test;
     node = next->node;
+    new_position->node = node;
 
     if (state->reverse) {
         if (start_pos < state->slice_start) {
@@ -9188,7 +9189,7 @@ again:
     if (test == node) {
         text_pos = start_pos + test->step;
 
-        if (test->next_1.node) {
+        if (test->next_1.node && state->slice_start <= text_pos && text_pos <= state->slice_end) {
             int status;
 
             status = try_match(state, &test->next_1, text_pos, new_position);
