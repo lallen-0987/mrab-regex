@@ -1,3 +1,7 @@
+Version: 2026.8.12
+
+    Support Python 3.15.
+
 Version: 2026.7.19
 
     Git issue 607: SIGSEGV: NULL pointer dereference in `basic_match()` when `(?R)`/`(?0)` recursion is used inside a fuzzy-matching quantifier
