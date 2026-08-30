@@ -15859,9 +15859,15 @@ backtrack:
             if (step > 0) {
                 if (limit < state->slice_start)
                     limit = state->slice_start;
+
+                if (pos < limit)
+                    limit = pos;
             } else {
                 if (limit > state->slice_end)
                     limit = state->slice_end;
+
+                if (pos > limit)
+                    limit = pos;
             }
 
             if (pos == limit) {
