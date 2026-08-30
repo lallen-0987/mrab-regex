@@ -24730,6 +24730,7 @@ Py_LOCAL_INLINE(int) build_GROUP(RE_CompileArgs* args) {
      * group.
      */
     subargs = *args;
+    subargs.forward = forward;
     status = build_sequence(&subargs);
     if (status != RE_ERROR_SUCCESS)
         return status;

@@ -3,6 +3,7 @@ Version: 2026.8.30
     Git issue 611: Heap out-of-bounds write at compile time
     Git issue 612: count_one() size underflow through the stale required-string cache
     Git issue 613: (*SKIP) inside an atomic group, plus an equality-only scan stop
+    Git issue 614: build_GROUP() does not propagate the match direction
 
 Version: 2026.8.12
 
