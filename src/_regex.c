@@ -17820,6 +17820,9 @@ Py_LOCAL_INLINE(int) do_best_fuzzy_match(RE_State* state, BOOL search) {
                 else
                     state->slice_end = slice_end;
 
+                /* We've narrowed the slice. The required string position might now be outside it. */
+                state->req_pos = -1;
+
                 state->max_errors = fewest_errors;
                 state->text_pos = entry->match_pos;
                 init_match(state);

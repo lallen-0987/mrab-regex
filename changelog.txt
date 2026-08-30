@@ -1,6 +1,7 @@
 Version: 2026.8.30
 
     Git issue 611: Heap out-of-bounds write at compile time
+    Git issue 612: count_one() size underflow through the stale required-string cache
 
 Version: 2026.8.12
 
