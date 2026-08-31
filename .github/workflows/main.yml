@@ -9,7 +9,7 @@ on:
 
 env:
   PYTHON_VER: '3.11'  # Python to run test/cibuildwheel
-  CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp313t-* cp314-* cp314t-*
+  CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp313t-* cp314-* cp314t-* cp315-* cp315t-*
   CIBW_TEST_COMMAND: python -m unittest regex.tests.test_regex
 
 jobs:
@@ -87,7 +87,7 @@ jobs:
           python-version: ${{ env.PYTHON_VER }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.2
+        uses: pypa/cibuildwheel@v4.2.0
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -136,7 +136,7 @@ jobs:
           python-version: ${{ env.PYTHON_VER }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.2
+        uses: pypa/cibuildwheel@v4.2.0
 
       - name: Upload manylinux1_x86_64 wheels
         uses: actions/upload-artifact@v4
@@ -170,7 +170,7 @@ jobs:
           platforms: ${{ matrix.arch }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.2
+        uses: pypa/cibuildwheel@v4.2.0
 
       - name: Upload ${{ matrix.arch }} wheels
         uses: actions/upload-artifact@v4
@@ -196,6 +196,6 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.PYPI_TOKEN }}
-          skip_existing: true
+          skip-existing: true
           verbose: true
-          print_hash: true
+          print-hash: true
