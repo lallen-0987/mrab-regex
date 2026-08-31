@@ -1,3 +1,7 @@
+Version: 2026.9.2
+
+    New version of cibuildwheel no longer needs nor supports cpython-freethreading option.
+
 Version: 2026.9.1
 
     Updated cibuildwheel.
